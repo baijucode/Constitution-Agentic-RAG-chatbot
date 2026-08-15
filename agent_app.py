@@ -120,11 +120,23 @@ def run_agent_workflow(user_query: str) -> str:
     try:
         response = requests.post(groq_url, headers=headers, json=payload)
         if response.status_code == 200:
-            return response.json()["choices"]["message"]["content"]
+            res_json = response.json()
+            
+            # Universal safety check for choices payload structures
+            if "choices" in res_json and len(res_json["choices"]) > 0:
+                first_choice = res_json["choices"][0] # Safely extract index 0 first
+                
+                if "message" in first_choice and "content" in first_choice["message"]:
+                    return first_choice["message"]["content"]
+                elif "text" in first_choice:
+                    return first_choice["text"]
+            
+            return f"⚠️ Unexpected JSON formatting: {res_json}"
         else:
             return f"⚠️ Cloud Provider Error {response.status_code}: {response.text}"
     except Exception as e:
-        return f"⚠️ Connection failed: {str(e)}"
+        return f"⚠️ Connection failed parsing logic: {str(e)}"
+
 
 # A permanent visual check variable to keep your interface routing logic completely error-proof
 agent = "Active"
