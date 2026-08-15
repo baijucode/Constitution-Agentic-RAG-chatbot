@@ -206,4 +206,13 @@ if user_input:
                     st.session_state.chat_history.append({"role": "assistant", "content": clean_output})
                     save_history_to_disk(st.session_state.chat_history)
                 except Exception as e:
+                    # ADVANCED DIAGNOSTIC: Print out the raw connection error message
                     st.error(f"⚠️ Agent Error: {e}")
+                    
+                    # Check if there is an underlying HTTP/API status message we can expose
+                    if hasattr(e, 'response') and e.response is not None:
+                        st.info(f"📋 Server Status Code: {e.response.status_code}")
+                        st.info(f"💬 Server Response Text: {e.response.text}")
+                    elif hasattr(e, 'message'):
+                        st.info(f"🔍 Technical details: {e.message}")
+
