@@ -67,32 +67,31 @@ with st.sidebar:
 
 # 3. Main Page Header
 st.markdown('<div class="main-header">⚖️ Nepal Constitution AI Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running on local Qwen 2.5-VL</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running on cloud orchestration</div>', unsafe_allow_html=True)
 
 
-# 4. Initialize Backend inside Cache
+# 4. Initialize Cloud Backend inside Cache
 @st.cache_resource
 def load_agentic_backend():
-    BASE_URL = 'http://localhost:1234/v1'
-    API_KEY = 'lm-studio'
-    CHAT_MODEL = 'qwen2.5-vl-3b-instruct'
+    # Fetch credentials securely injected from Streamlit Secrets
+    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
-    local_model = OpenAIModel(
-        model_id=CHAT_MODEL,
-        client_args={"base_url": BASE_URL, "api_key": API_KEY}
+    # Swap from LM Studio to official cloud OpenAI model
+    cloud_model = OpenAIModel(
+        model_id="gpt-4o-mini",
+        client_args={"api_key": OPENAI_API_KEY}
     )
 
     from langchain_community.vectorstores import FAISS
     from langchain_openai import OpenAIEmbeddings
 
+    # Swap from local embedding engine to official OpenAI cloud embeddings
     embeddings = OpenAIEmbeddings(
-        model="text-embedding-qwen3-embedding-0.6b",
-        api_key="lm-studio",
-        base_url=BASE_URL,
-        tiktoken_enabled=False,
-        check_embedding_ctx_length=False
+        model="text-embedding-3-small",
+        api_key=OPENAI_API_KEY
     )
 
+    # Relative path works out of the box on Streamlit servers
     vector_store = FAISS.load_local(
         folder_path="faiss_index_nepal", 
         embeddings=embeddings,
@@ -122,7 +121,7 @@ def load_agentic_backend():
         return "No web results found."
 
     strands_agent = Agent(
-        model=local_model, 
+        model=cloud_model, 
         tools=[query_nepal_constitution, live_web_search],
         system_prompt=(
             "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
@@ -133,6 +132,8 @@ def load_agentic_backend():
     )
     return strands_agent
 
+# Safeguard against rendering crashes if variable initialization fails
+agent = None
 try:
     agent = load_agentic_backend()
 except Exception as e:
@@ -174,12 +175,15 @@ if user_input:
 
     with st.chat_message("assistant"):
         with st.spinner("🕵️ Agent is analyzing tools and reasoning..."):
-            try:
-                agent_response = agent(user_input)
-                clean_output = str(agent_response)
-                
-                st.write(clean_output)
-                st.session_state.chat_history.append({"role": "assistant", "content": clean_output})
-                save_history_to_disk(st.session_state.chat_history)
-            except Exception as e:
-                st.error(f"⚠️ Agent Error: {e}")
+            if agent is None:
+                st.error("⚠️ Cannot process request: The backend agent failed to initialize properly.")
+            else:
+                try:
+                    agent_response = agent(user_input)
+                    clean_output = str(agent_response)
+                    
+                    st.write(clean_output)
+                    st.session_state.chat_history.append({"role": "assistant", "content": clean_output})
+                    save_history_to_disk(st.session_state.chat_history)
+                except Exception as e:
+                    st.error(f"⚠️ Agent Error: {e}")
