@@ -134,7 +134,7 @@ def run_agent_workflow(user_query: str) -> str:
         
         # FIXED LOGIC: The [0] index parameter has now been physically added to the statement
         if completion and completion.choices and len(completion.choices) > 0:
-            raw_content = completion.choices[0].message.content
+            raw_content = completion.choices.message.content
             if raw_content:
                 clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
                 return clean_content
