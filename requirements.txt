@@ -1,7 +1,2 @@
 streamlit
 requests
-strands-agents
-openai
-langchain-community
-faiss-cpu
-groq
