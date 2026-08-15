@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import json
 import os
+import re  # Added for stripping out the thinking logs
 
 # 1. Page Configuration with Theme Accents
 st.set_page_config(
@@ -64,7 +65,7 @@ with st.sidebar:
 
 # 3. Main Page Header
 st.markdown('<div class="main-header">⚖️ Nepal Constitution AI Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq Cloud Qwen Engine</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq Cloud Engine</div>', unsafe_allow_html=True)
 
 # 4. Core Legal & Search Engines
 def live_web_search(query: str) -> str:
@@ -93,7 +94,7 @@ def run_agent_workflow(user_query: str) -> str:
     web_context = live_web_search(user_query)
     
     # Official Groq endpoint for chat completions
-    groq_url = "https://api.groq.com/openai/v1/chat/completions"
+    groq_url = "https://groq.com"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -101,44 +102,44 @@ def run_agent_workflow(user_query: str) -> str:
     
     system_prompt = (
         "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
-        "Analyze the user query based on the real-time research context below. "
-        "If the user is just saying hello or sending a short greeting, respond naturally and casually without over-explaining. "
-        "For actual legal questions, cite specific Article numbers, provisions, and source details accurately. \n\n"
+        "Analyze the user query based on the following real-time research context. "
+        "If the user says hello or sends a short greeting, respond naturally and casually without over-explaining. "
+        "Always cite specific Article numbers, provisions, and source details accurately. \n\n"
         f"--- RESEARCH CONTEXT ---\n{web_context}"
     )
-
     
-    # A standard payload configuration that Groq natively supports out-of-the-box
     payload = {
-        "model": "qwen/qwen3.6-27b", # Updated to the active, supported cloud model ID
+        "model": "qwen/qwen3.6-27b",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_query}
         ],
         "temperature": 0.2
     }
-
     
     try:
         response = requests.post(groq_url, headers=headers, json=payload)
         if response.status_code == 200:
             res_json = response.json()
             
-            # Universal safety check for choices payload structures
             if "choices" in res_json and len(res_json["choices"]) > 0:
-                first_choice = res_json["choices"][0] # Safely extract index 0 first
+                first_choice = res_json["choices"][0]
                 
                 if "message" in first_choice and "content" in first_choice["message"]:
-                    return first_choice["message"]["content"]
+                    raw_content = first_choice["message"]["content"]
+                    
+                    # CRITICAL FIX: Hide the raw thinking process behind the scenes
+                    clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+                    return clean_content
+                    
                 elif "text" in first_choice:
-                    return first_choice["text"]
+                    return first_choice["text"].strip()
             
             return f"⚠️ Unexpected JSON formatting: {res_json}"
         else:
             return f"⚠️ Cloud Provider Error {response.status_code}: {response.text}"
     except Exception as e:
         return f"⚠️ Connection failed parsing logic: {str(e)}"
-
 
 # A permanent visual check variable to keep your interface routing logic completely error-proof
 agent = "Active"
