@@ -132,12 +132,16 @@ def run_agent_workflow(user_query: str) -> str:
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # FIXED LOGIC: The [0] index parameter has now been physically added to the statement
-        if completion and completion.choices and len(completion.choices) > 0:
-            raw_content = completion.choices.message.content
-            if raw_content:
-                clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
-                return clean_content
+        # UNIFIED DATA EXTRACTION REPAIR: Converts object schema into traditional robust Python dictionary matching
+        res_dict = completion.model_dump()
+        
+        if "choices" in res_dict and len(res_dict["choices"]) > 0:
+            first_choice = res_dict["choices"][0]
+            if "message" in first_choice and "content" in first_choice["message"]:
+                raw_content = first_choice["message"]["content"]
+                if raw_content:
+                    clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+                    return clean_content
         
         return "⚠️ Error: The AI cloud provider returned an empty completion packet."
 
