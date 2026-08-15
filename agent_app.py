@@ -103,10 +103,10 @@ def run_agent_workflow(user_query: str) -> str:
     )
     
     try:
-        # Initialize the official secure Groq SDK Client wrapper
+        # Initialize official Groq SDK Client wrapper
         client = Groq(api_key=api_key)
         
-        # Call the active completions pipeline with standard parameters
+        # Call completions pipeline with active parameter schema
         completion = client.chat.completions.create(
             model="qwen/qwen3.6-27b",
             messages=[
@@ -114,20 +114,20 @@ def run_agent_workflow(user_query: str) -> str:
                 {"role": "user", "content": user_query}
             ],
             temperature=0.2,
-            # FIXED KEY: Use Groq's official API configuration to drop thinking blocks completely
-            reasoning_format="hidden"
+            reasoning_format="hidden"  # Hides reasoning thoughts entirely
         )
         
-        raw_content = completion.choices.message.content
+        # CRITICAL FIX: Explicitly target index [0] of choices list before parsing content
+        raw_content = completion.choices[0].message.content
         
-        # Secondary fallback regex cleaning step just to be bulletproof
+        # Fallback regex cleaning filter
         clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
         return clean_content
 
     except Exception as e:
         return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
 
-# A permanent visual check variable to keep your interface routing logic completely error-proof
+# Interface tracking structural token
 agent = "Active"
 
 # 5. Session State Tracking from Persistent Storage
