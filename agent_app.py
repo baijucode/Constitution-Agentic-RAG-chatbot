@@ -124,7 +124,7 @@ def run_agent_workflow(user_query: str) -> str:
         
         # CRITICAL REPAIR FIX: Explicitly target index [0] element of choices list object array
         if completion and completion.choices and len(completion.choices) > 0:
-            raw_content = completion.choices[0].message.content
+            raw_content = completion.choices.message.content
             if raw_content:
                 clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
                 return clean_content
