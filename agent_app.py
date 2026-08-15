@@ -80,14 +80,15 @@ def load_agentic_backend():
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
     OPENAI_BASE_URL = st.secrets["OPENAI_BASE_URL"]
 
-    # Initialize the model with your custom cloud endpoint
+    # Initialize the model with Groq's cloud Qwen model
     cloud_model = OpenAIModel(
-        model_id="gpt-4o-mini", 
+        model_id="qwen-2.5-coder-32b", 
         client_args={
             "api_key": OPENAI_API_KEY,
             "base_url": OPENAI_BASE_URL
         }
     )
+
 
     from langchain_community.vectorstores import FAISS
     from langchain_openai import OpenAIEmbeddings
