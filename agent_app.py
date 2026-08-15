@@ -108,13 +108,14 @@ def run_agent_workflow(user_query: str) -> str:
     
     # A standard payload configuration that Groq natively supports out-of-the-box
     payload = {
-        "model": "qwen-2.5-coder-32b",
+        "model": "qwen/qwen3.6-27b", # Updated to the active, supported cloud model ID
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_query}
         ],
         "temperature": 0.2
     }
+
     
     try:
         response = requests.post(groq_url, headers=headers, json=payload)
