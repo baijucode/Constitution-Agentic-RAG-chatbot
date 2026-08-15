@@ -49,7 +49,7 @@ with st.sidebar:
     st.markdown("## ⚙️ System Status")
     st.success("🤖 Cloud Inference: Active (Groq SDK)")
     st.warning("📚 FAISS Database: Local Mismatch Bypassed")
-    st.success("🌐 Tavily Web Search: Connected")
+    st.success("🌐 Hybrid Search Engine: Ready (Tavily + Wiki Fallback)")
     
     st.markdown("---")
     st.markdown("### 💡 What is this?")
@@ -68,26 +68,36 @@ with st.sidebar:
 st.markdown('<div class="main-header">⚖️ Nepal Constitution AI Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq Cloud Qwen Engine</div>', unsafe_allow_html=True)
 
-# 4. Core Legal & Search Engines
+# 4. Core Legal & Hybrid Search Engines
 def live_web_search(query: str) -> str:
-    """Searches the internet for live constitutional text, clauses, and explanations."""
+    """Searches the internet for live constitutional text with a built-in Wikipedia fallback."""
     TAVILY_API_KEY = "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"
     url = "https://tavily.com" 
-    headers = {"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}
-    
-    # Enforce safe typecasting to prevent inner query string breakdowns
     clean_query_str = f"{str(query)} Constitution of Nepal articles clauses"
     payload = {"query": clean_query_str, "topic": "general", "max_results": 3}
     
     try:
-        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        # Try primary Tavily search route first
+        res = requests.post(url, headers={"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}, json=payload, timeout=8)
         if res.status_code == 200:
             results = res.json().get("results", [])
             if results:
                 return "\n\n".join(f"[Source: {r.get('title', 'Web')}]: {r.get('content', '')}" for r in results)
     except Exception:
         pass
-    return "No live web constitutional data found."
+        
+    # FALLBACK SOURCE ROUTE: If Tavily fails or hits rate limits, pull data directly via public Wikipedia text API
+    try:
+        wiki_url = f"https://wikipedia.org{requests.utils.quote(str(query) + ' Constitution of Nepal')}&format=json&origin=*"
+        wiki_res = requests.get(wiki_url, timeout=8)
+        if wiki_res.status_code == 200:
+            search_items = wiki_res.json().get("query", {}).get("search", [])
+            if search_items:
+                return "\n\n".join(f"[Source: Wikipedia - {item['title']}]: {re.sub('<[^<]+?>', '', item['snippet'])}" for item in search_items[:3])
+    except Exception:
+        pass
+        
+    return "No live web constitutional data found in primary or fallback systems."
 
 def run_agent_workflow(user_query: str) -> str:
     """Executes the legal research task by combining internet search and Groq SDK reasoning."""
@@ -96,7 +106,7 @@ def run_agent_workflow(user_query: str) -> str:
 
     api_key = st.secrets["OPENAI_API_KEY"]
     
-    # Fetch real-time research context dynamically
+    # Fetch real-time research context dynamically from hybrid engine
     web_context = live_web_search(user_query)
     
     system_prompt = (
@@ -122,9 +132,9 @@ def run_agent_workflow(user_query: str) -> str:
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # CRITICAL REPAIR FIX: Explicitly target index [0] element of choices list object array
+        # FIXED LOGIC: The [0] index parameter has now been physically added to the statement
         if completion and completion.choices and len(completion.choices) > 0:
-            raw_content = completion.choices.message.content
+            raw_content = completion.choices[0].message.content
             if raw_content:
                 clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
                 return clean_content
