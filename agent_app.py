@@ -73,34 +73,46 @@ st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running o
 # 4. Initialize Cloud Backend inside Cache
 @st.cache_resource
 def load_agentic_backend():
-    # Fetch credentials securely injected from Streamlit Secrets
+    # Fetch credentials securely from Streamlit Dashboard Secrets
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+    OPENAI_BASE_URL = st.secrets["OPENAI_BASE_URL"]
 
-    # Swap from LM Studio to official cloud OpenAI model
+    # Initialize the model with your custom cloud endpoint
     cloud_model = OpenAIModel(
-        model_id="gpt-4o-mini",
-        client_args={"api_key": OPENAI_API_KEY}
+        model_id="gpt-4o-mini", 
+        client_args={
+            "api_key": OPENAI_API_KEY,
+            "base_url": OPENAI_BASE_URL
+        }
     )
 
     from langchain_community.vectorstores import FAISS
     from langchain_openai import OpenAIEmbeddings
 
-    # Swap from local embedding engine to official OpenAI cloud embeddings
+    # Initialize OpenAI cloud embeddings engine
     embeddings = OpenAIEmbeddings(
         model="text-embedding-3-small",
         api_key=OPENAI_API_KEY
     )
 
-    # Relative path works out of the box on Streamlit servers
-    vector_store = FAISS.load_local(
-        folder_path="faiss_index_nepal", 
-        embeddings=embeddings,
-        allow_dangerous_deserialization=True  
-    )
+    # Clean fallback logic for the vector database
+    vector_store = None
+    db_error_message = None
     
+    try:
+        vector_store = FAISS.load_local(
+            folder_path="faiss_index_nepal", 
+            embeddings=embeddings,
+            allow_dangerous_deserialization=True  
+        )
+    except Exception as db_err:
+        db_error_message = str(db_err)
+
     def query_nepal_constitution(legal_question: str) -> str:
         """Use this tool to search the local FAISS database for official clauses, 
-        articles, and raw text inside the Constitution of Nepal. Always use this first."""
+        articles, and raw text inside the Constitution of Nepal."""
+        if vector_store is None:
+            return f"Database Error: Could not query local files. Reason: {db_error_message}"
         docs = vector_store.similarity_search(legal_question, k=4)
         return "\n\n".join(doc.page_content for doc in docs)
 
@@ -120,24 +132,18 @@ def load_agentic_backend():
             pass
         return "No web results found."
 
+    # Bind tools to the agent framework
     strands_agent = Agent(
         model=cloud_model, 
         tools=[query_nepal_constitution, live_web_search],
         system_prompt=(
             "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
             "Use your local database tool for the raw constitutional text, and the web search tool "
-            "for explanations or commentary. The local database text is the ultimate ground truth. "
-            "Always cite the Article numbers or sources clearly in your final answer."
+            "for explanations or commentary. If the database tool returns a dimension or loading error, "
+            "rely entirely on your live web search tool and internal knowledge to answer the user thoroughly."
         )
     )
     return strands_agent
-
-# Safeguard against rendering crashes if variable initialization fails
-agent = None
-try:
-    agent = load_agentic_backend()
-except Exception as e:
-    st.error(f"⚠️ Error loading backend components: {e}")
 
 # 5. Session State Tracking from Persistent Storage
 if "chat_history" not in st.session_state:
