@@ -68,27 +68,36 @@ with st.sidebar:
 st.markdown('<div class="main-header">⚖️ Nepal Constitution AI Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running on Groq Cloud Qwen Engine</div>', unsafe_allow_html=True)
 
-
 # 4. Initialize Cloud Backend inside Cache
 @st.cache_resource
 def load_agentic_backend():
     # Fetch credentials securely from Streamlit Dashboard Secrets
-    if "OPENAI_API_KEY" not in st.secrets or "OPENAI_BASE_URL" not in st.secrets:
-        raise ValueError("Missing keys in Streamlit Secrets! Check your dashboard configuration.")
+    if "OPENAI_API_KEY" not in st.secrets:
+        raise ValueError("Missing Groq API Key inside your Streamlit secrets configurations!")
 
     GROQ_API_KEY = st.secrets["OPENAI_API_KEY"]
-    GROQ_BASE_URL = st.secrets["OPENAI_BASE_URL"]
 
-    # Use standard OpenAIModel wrapper configured explicitly for Groq endpoints
-    cloud_model = OpenAIModel(
+    # CRITICAL REMEDY: Switch out the generic OpenAI model wrapper 
+    # and import the dedicated native Groq driver to prevent the 405 error block.
+    from strands.models.groq import GroqModel
+
+    # Direct native initialization to Groq cloud infrastructure
+    cloud_model = GroqModel(
         model_id="qwen-2.5-coder-32b", 
         client_args={
-            "api_key": GROQ_API_KEY,
-            "base_url": GROQ_BASE_URL
+            "api_key": GROQ_API_KEY
         }
     )
 
-    # Bypassing the local-to-cloud mismatch database loading fault safely
+    from langchain_community.vectorstores import FAISS
+    # We are dropping the cloud embeddings line entirely since we will bypass 
+    # the local-to-cloud mismatch loading fault safely.
+
+    # Setup clean fallback pointers for the vector database setup
+    vector_store = None
+    db_error_message = "Database dimension architecture mismatch detected on cloud network environment."
+    
+    # Safely convert the database tool to act as a fallback pointer notification
     def query_nepal_constitution(legal_question: str) -> str:
         """Use this tool to search the local FAISS database for official clauses, 
         articles, and raw text inside the Constitution of Nepal."""
@@ -98,40 +107,7 @@ def load_agentic_backend():
             "live web search tool to look up official clauses or articles from the Constitution of Nepal."
         )
 
-    def live_web_search(query: str) -> str:
-        """Use this tool to search the internet for live legal commentary, supreme court 
-        interpretations, explanations, or recent legal news regarding Nepal."""
-        TAVILY_API_KEY = "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"
-        url = "https://tavily.com" 
-        headers = {"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}
-        payload = {"query": query, "topic": "general", "max_results": 2}
-        try:
-            res = requests.post(url, headers=headers, json=payload)
-            if res.status_code == 200:
-                results = res.json().get("results", [])
-                return "\n\n".join(f"[Web]: {r.get('content')}" for r in results)
-        except Exception:
-            pass
-        return "No web results found."
 
-    # Bind tools safely to your orchestration agent framework
-    strands_agent = Agent(
-        model=cloud_model, 
-        tools=[query_nepal_constitution, live_web_search],
-        system_prompt=(
-            "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
-            "Use your live web search tool for all explanations, clauses, or commentary. "
-            "Always cite the Article numbers or web sources clearly in your final answer."
-        )
-    )
-    return strands_agent
-
-# Pre-define the variable as None so a NameError is impossible if cache throws an exception
-agent = None
-try:
-    agent = load_agentic_backend()
-except Exception as e:
-    st.error(f"⚠️ Error loading backend components: {e}")
 
 # 5. Session State Tracking from Persistent Storage
 if "chat_history" not in st.session_state:
