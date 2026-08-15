@@ -101,10 +101,12 @@ def run_agent_workflow(user_query: str) -> str:
     
     system_prompt = (
         "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
-        "Analyze the user query based on the following real-time research context. "
-        "Always cite specific Article numbers, provisions, and source details accurately. \n\n"
+        "Analyze the user query based on the real-time research context below. "
+        "If the user is just saying hello or sending a short greeting, respond naturally and casually without over-explaining. "
+        "For actual legal questions, cite specific Article numbers, provisions, and source details accurately. \n\n"
         f"--- RESEARCH CONTEXT ---\n{web_context}"
     )
+
     
     # A standard payload configuration that Groq natively supports out-of-the-box
     payload = {
