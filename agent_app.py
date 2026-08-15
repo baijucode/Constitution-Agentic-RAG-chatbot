@@ -2,7 +2,8 @@ import streamlit as st
 import requests
 import json
 import os
-import re  # Added for stripping out the thinking logs
+import re
+from groq import Groq  # Official SDK client package wrapper import
 
 # 1. Page Configuration with Theme Accents
 st.set_page_config(
@@ -46,7 +47,7 @@ def save_history_to_disk(history):
 # 2. Left Sidebar (Information & Control Center)
 with st.sidebar:
     st.markdown("## ⚙️ System Status")
-    st.success("🤖 Cloud Inference: Active (Groq)")
+    st.success("🤖 Cloud Inference: Active (Groq SDK)")
     st.warning("📚 FAISS Database: Local Mismatch Bypassed")
     st.success("🌐 Tavily Web Search: Connected")
     
@@ -65,7 +66,7 @@ with st.sidebar:
 
 # 3. Main Page Header
 st.markdown('<div class="main-header">⚖️ Nepal Constitution AI Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq Cloud Engine</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq Cloud Qwen Engine</div>', unsafe_allow_html=True)
 
 # 4. Core Legal & Search Engines
 def live_web_search(query: str) -> str:
@@ -84,7 +85,7 @@ def live_web_search(query: str) -> str:
     return "No live web constitutional data found."
 
 def run_agent_workflow(user_query: str) -> str:
-    """Executes the legal research task by combining internet search and Qwen model reasoning."""
+    """Executes the legal research task by combining internet search and Groq SDK reasoning."""
     if "OPENAI_API_KEY" not in st.secrets:
         return "⚠️ Error: Missing `OPENAI_API_KEY` (Groq Key) in your Streamlit secrets dashboard!"
 
@@ -92,13 +93,6 @@ def run_agent_workflow(user_query: str) -> str:
     
     # Fetch real-time research context dynamically
     web_context = live_web_search(user_query)
-    
-    # Official Groq endpoint for chat completions
-    groq_url = "https://groq.com"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
     
     system_prompt = (
         "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
@@ -108,38 +102,28 @@ def run_agent_workflow(user_query: str) -> str:
         f"--- RESEARCH CONTEXT ---\n{web_context}"
     )
     
-    payload = {
-        "model": "qwen/qwen3.6-27b",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_query}
-        ],
-        "temperature": 0.2
-    }
-    
     try:
-        response = requests.post(groq_url, headers=headers, json=payload)
-        if response.status_code == 200:
-            res_json = response.json()
-            
-            if "choices" in res_json and len(res_json["choices"]) > 0:
-                first_choice = res_json["choices"][0]
-                
-                if "message" in first_choice and "content" in first_choice["message"]:
-                    raw_content = first_choice["message"]["content"]
-                    
-                    # CRITICAL FIX: Hide the raw thinking process behind the scenes
-                    clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
-                    return clean_content
-                    
-                elif "text" in first_choice:
-                    return first_choice["text"].strip()
-            
-            return f"⚠️ Unexpected JSON formatting: {res_json}"
-        else:
-            return f"⚠️ Cloud Provider Error {response.status_code}: {response.text}"
+        # Initialize the official secure Groq SDK Client wrapper
+        client = Groq(api_key=api_key)
+        
+        # Call the active completions pipeline with perfectly formatted parameters
+        completion = client.chat.completions.create(
+            model="qwen/qwen3.6-27b",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_query}
+            ],
+            temperature=0.2
+        )
+        
+        raw_content = completion.choices[0].message.content
+        
+        # Hide the raw reasoning thinking steps behind the scenes
+        clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+        return clean_content
+
     except Exception as e:
-        return f"⚠️ Connection failed parsing logic: {str(e)}"
+        return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
 
 # A permanent visual check variable to keep your interface routing logic completely error-proof
 agent = "Active"
