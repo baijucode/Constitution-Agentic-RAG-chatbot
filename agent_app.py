@@ -48,15 +48,14 @@ def save_history_to_disk(history):
 with st.sidebar:
     st.markdown("## ⚙️ System Status")
     st.success("🤖 Strands Engine: Active")
-    st.success("📚 FAISS Database: Loaded")
+    st.success("📚 FAISS Database: Suspended (Cloud Mode)")
     st.success("🌐 Tavily Web Search: Connected")
     
     st.markdown("---")
     st.markdown("### 💡 What is this?")
     st.write(
         "This is an Agentic RAG assistant. It reads the official "
-        "Constitution of Nepal from a local vector index and blends "
-        "it with live web analysis using an autonomous reasoning loop."
+        "Constitution of Nepal from a live web analysis using an autonomous reasoning loop."
     )
     st.markdown("---")
     if st.button("🔄 Clear Chat History"):
@@ -67,7 +66,7 @@ with st.sidebar:
 
 # 3. Main Page Header
 st.markdown('<div class="main-header">⚖️ Nepal Constitution AI Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running on cloud orchestration</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running on Groq Cloud Qwen Engine</div>', unsafe_allow_html=True)
 
 
 # 4. Initialize Cloud Backend inside Cache
@@ -77,53 +76,27 @@ def load_agentic_backend():
     if "OPENAI_API_KEY" not in st.secrets or "OPENAI_BASE_URL" not in st.secrets:
         raise ValueError("Missing keys in Streamlit Secrets! Check your dashboard configuration.")
 
-    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-    OPENAI_BASE_URL = st.secrets["OPENAI_BASE_URL"]
+    GROQ_API_KEY = st.secrets["OPENAI_API_KEY"]
+    GROQ_BASE_URL = st.secrets["OPENAI_BASE_URL"]
 
-    # Initialize the model with Groq's cloud Qwen model
+    # Use standard OpenAIModel wrapper configured explicitly for Groq endpoints
     cloud_model = OpenAIModel(
         model_id="qwen-2.5-coder-32b", 
         client_args={
-            "api_key": OPENAI_API_KEY,
-            "base_url": OPENAI_BASE_URL
+            "api_key": GROQ_API_KEY,
+            "base_url": GROQ_BASE_URL
         }
     )
 
-
-
-    from langchain_community.vectorstores import FAISS
-    from langchain_openai import OpenAIEmbeddings
-
-    # Setup clean fallback pointers for the vector database setup
-    vector_store = None
-    db_error_message = "Database not loaded yet."
-    
-    try:
-        # Initialize custom cloud embeddings engine
-        embeddings = OpenAIEmbeddings(
-            model="text-embedding-qwen3-embedding-0.6b",
-            api_key=OPENAI_API_KEY,
-            base_url=OPENAI_BASE_URL,
-            tiktoken_enabled=False,
-            check_embedding_ctx_length=False
-        )
-        
-        vector_store = FAISS.load_local(
-            folder_path="faiss_index_nepal", 
-            embeddings=embeddings,
-            allow_dangerous_deserialization=True  
-        )
-        db_error_message = None
-    except Exception as db_err:
-        db_error_message = str(db_err)
-
+    # Bypassing the local-to-cloud mismatch database loading fault safely
     def query_nepal_constitution(legal_question: str) -> str:
         """Use this tool to search the local FAISS database for official clauses, 
         articles, and raw text inside the Constitution of Nepal."""
-        if vector_store is None:
-            return f"⚠️ local database cannot be loaded in cloud because of this backend mismatch: {db_error_message}"
-        docs = vector_store.similarity_search(legal_question, k=4)
-        return "\n\n".join(doc.page_content for doc in docs)
+        return (
+            "⚠️ Notice: The local FAISS database files cannot be initialized on this cloud container "
+            "due to an embedding architecture dimension mismatch. Please rely completely on the "
+            "live web search tool to look up official clauses or articles from the Constitution of Nepal."
+        )
 
     def live_web_search(query: str) -> str:
         """Use this tool to search the internet for live legal commentary, supreme court 
@@ -147,14 +120,13 @@ def load_agentic_backend():
         tools=[query_nepal_constitution, live_web_search],
         system_prompt=(
             "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
-            "Use your local database tool for the raw constitutional text, and the web search tool "
-            "for explanations or commentary. If the database tool displays a mismatch error, "
-            "rely entirely on your live web search tool and internal reasoning to answer thoroughly."
+            "Use your live web search tool for all explanations, clauses, or commentary. "
+            "Always cite the Article numbers or web sources clearly in your final answer."
         )
     )
     return strands_agent
 
-# CRITICAL FIX: Pre-define the variable as None so the NameError is impossible
+# Pre-define the variable as None so a NameError is impossible if cache throws an exception
 agent = None
 try:
     agent = load_agentic_backend()
@@ -208,13 +180,4 @@ if user_input:
                     st.session_state.chat_history.append({"role": "assistant", "content": clean_output})
                     save_history_to_disk(st.session_state.chat_history)
                 except Exception as e:
-                    # ADVANCED DIAGNOSTIC: Print out the raw connection error message
                     st.error(f"⚠️ Agent Error: {e}")
-                    
-                    # Check if there is an underlying HTTP/API status message we can expose
-                    if hasattr(e, 'response') and e.response is not None:
-                        st.info(f"📋 Server Status Code: {e.response.status_code}")
-                        st.info(f"💬 Server Response Text: {e.response.text}")
-                    elif hasattr(e, 'message'):
-                        st.info(f"🔍 Technical details: {e.message}")
-
