@@ -86,7 +86,7 @@ def live_web_search(query: str) -> str:
     except Exception:
         pass
         
-    # FALLBACK SOURCE ROUTE: If Tavily fails or hits rate limits, pull data directly via public Wikipedia text API
+    # FALLBACK SOURCE ROUTE: Pull data directly via public Wikipedia text API
     try:
         wiki_url = f"https://wikipedia.org{requests.utils.quote(str(query) + ' Constitution of Nepal')}&format=json&origin=*"
         wiki_res = requests.get(wiki_url, timeout=8)
@@ -132,18 +132,22 @@ def run_agent_workflow(user_query: str) -> str:
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # FIXED: Added the missing [0] bracket so Python reads the choices list accurately
-        if completion and completion.choices and len(completion.choices) > 0:
-            raw_content = completion.choices[0].message.content
-            if raw_content:
-                clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
-                return clean_content
+        # Convert response object schema into a robust Python dictionary matching layout
+        res_dict = completion.model_dump()
+        
+        if "choices" in res_dict and len(res_dict["choices"]) > 0:
+            # FIXED STRUCTURAL BLOCK: Added explicit list entry array indexing [0]
+            first_choice = res_dict["choices"][0]
+            if "message" in first_choice and "content" in first_choice["message"]:
+                raw_content = first_choice["message"]["content"]
+                if raw_content:
+                    clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+                    return clean_content
         
         return "⚠️ Error: The AI cloud provider returned an empty completion packet."
 
     except Exception as e:
         return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
-
 
 # Interface tracking structural token
 agent = "Active"
