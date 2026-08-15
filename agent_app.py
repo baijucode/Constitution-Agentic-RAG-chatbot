@@ -89,25 +89,33 @@ def load_agentic_backend():
     from langchain_community.vectorstores import FAISS
     from langchain_openai import OpenAIEmbeddings
 
-    # CRITICAL FIX: Make the embedding engine route to your custom cloud endpoint too!
+    # Initialize custom cloud embeddings engine
     embeddings = OpenAIEmbeddings(
-        model="text-embedding-qwen3-embedding-0.6b", # Matches your exact local model name
+        model="text-embedding-qwen3-embedding-0.6b",
         api_key=OPENAI_API_KEY,
         base_url=OPENAI_BASE_URL,
         tiktoken_enabled=False,
         check_embedding_ctx_length=False
     )
 
-    # Relative path works out of the box on Streamlit servers
-    vector_store = FAISS.load_local(
-        folder_path="faiss_index_nepal", 
-        embeddings=embeddings,
-        allow_dangerous_deserialization=True  
-    )
+    # Clean fallback logic for the vector database setup
+    vector_store = None
+    db_error_message = None
     
+    try:
+        vector_store = FAISS.load_local(
+            folder_path="faiss_index_nepal", 
+            embeddings=embeddings,
+            allow_dangerous_deserialization=True  
+        )
+    except Exception as db_err:
+        db_error_message = str(db_err)
+
     def query_nepal_constitution(legal_question: str) -> str:
         """Use this tool to search the local FAISS database for official clauses, 
-        articles, and raw text inside the Constitution of Nepal. Always use this first."""
+        articles, and raw text inside the Constitution of Nepal."""
+        if vector_store is None:
+            return f"⚠️ local database cannot be loaded in cloud because of this backend mismatch: {db_error_message}"
         docs = vector_store.similarity_search(legal_question, k=4)
         return "\n\n".join(doc.page_content for doc in docs)
 
@@ -127,17 +135,19 @@ def load_agentic_backend():
             pass
         return "No web results found."
 
+    # Bind tools safely to your orchestration agent framework
     strands_agent = Agent(
         model=cloud_model, 
         tools=[query_nepal_constitution, live_web_search],
         system_prompt=(
             "You are an expert AI Legal Assistant specializing in the Constitution of Nepal. "
             "Use your local database tool for the raw constitutional text, and the web search tool "
-            "for explanations or commentary. The local database text is the ultimate ground truth. "
-            "Always cite the Article numbers or sources clearly in your final answer."
+            "for explanations or commentary. If the database tool displays a mismatch error, "
+            "rely entirely on your live web search tool and internal reasoning to answer thoroughly."
         )
     )
     return strands_agent
+
 
 # 5. Session State Tracking from Persistent Storage
 if "chat_history" not in st.session_state:
