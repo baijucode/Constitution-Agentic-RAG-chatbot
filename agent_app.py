@@ -72,15 +72,19 @@ st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq C
 def live_web_search(query: str) -> str:
     """Searches the internet for live constitutional text, clauses, and explanations."""
     TAVILY_API_KEY = "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"
-    # FIXED LINE: Direct target routing mapped to official API gateway search endpoint
     url = "https://tavily.com" 
     headers = {"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}
-    payload = {"query": query + " Constitution of Nepal articles clauses", "topic": "general", "max_results": 3}
+    
+    # SANITIZATION FIX: Enforce clean typecasting to prevent inner query string breakdowns
+    clean_query_str = f"{str(query)} Constitution of Nepal articles clauses"
+    payload = {"query": clean_query_str, "topic": "general", "max_results": 3}
+    
     try:
-        res = requests.post(url, headers=headers, json=payload)
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
         if res.status_code == 200:
             results = res.json().get("results", [])
-            return "\n\n".join(f"[Source: {r.get('title')}]: {r.get('content')}" for r in results)
+            if results:
+                return "\n\n".join(f"[Source: {r.get('title', 'Web')}]: {r.get('content', '')}" for r in results)
     except Exception:
         pass
     return "No live web constitutional data found."
@@ -112,18 +116,20 @@ def run_agent_workflow(user_query: str) -> str:
             model="qwen/qwen3.6-27b",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_query}
+                {"role": "user", "content": str(user_query)}
             ],
             temperature=0.2,
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # Pull choices accurately via zero indexing matching SDK schemas securely
-        raw_content = completion.choices[0].message.content
+        # EXPLICIT RETRIEVAL FIX: Target array index elements cleanly to safeguard against blank returns
+        if completion and completion.choices and len(completion.choices) > 0:
+            raw_content = completion.choices[0].message.content
+            if raw_content:
+                clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+                return clean_content
         
-        # Fallback regex cleaning filter
-        clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
-        return clean_content
+        return "⚠️ Error: The AI cloud provider returned an empty completion packet."
 
     except Exception as e:
         return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
