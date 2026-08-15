@@ -2,6 +2,6 @@ streamlit
 requests
 strands-agents
 openai
-faiss-cpu
+langchain-openai
 langchain-community
-langchain-core
+faiss-cpu
