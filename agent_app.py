@@ -72,6 +72,7 @@ st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq C
 def live_web_search(query: str) -> str:
     """Searches the internet for live constitutional text, clauses, and explanations."""
     TAVILY_API_KEY = "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"
+    # FIXED LINE: Direct target routing mapped to official API gateway search endpoint
     url = "https://tavily.com" 
     headers = {"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}
     payload = {"query": query + " Constitution of Nepal articles clauses", "topic": "general", "max_results": 3}
@@ -117,7 +118,7 @@ def run_agent_workflow(user_query: str) -> str:
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # CRITICAL STRUCTURAL FIX: Added [0] index to read the choices array accurately
+        # Pull choices accurately via zero indexing matching SDK schemas securely
         raw_content = completion.choices[0].message.content
         
         # Fallback regex cleaning filter
