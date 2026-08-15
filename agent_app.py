@@ -75,7 +75,7 @@ def live_web_search(query: str) -> str:
     url = "https://tavily.com" 
     headers = {"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}
     
-    # SANITIZATION FIX: Enforce clean typecasting to prevent inner query string breakdowns
+    # Enforce safe typecasting to prevent inner query string breakdowns
     clean_query_str = f"{str(query)} Constitution of Nepal articles clauses"
     payload = {"query": clean_query_str, "topic": "general", "max_results": 3}
     
@@ -122,7 +122,7 @@ def run_agent_workflow(user_query: str) -> str:
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # EXPLICIT RETRIEVAL FIX: Target array index elements cleanly to safeguard against blank returns
+        # CRITICAL REPAIR FIX: Explicitly target index [0] element of choices list object array
         if completion and completion.choices and len(completion.choices) > 0:
             raw_content = completion.choices[0].message.content
             if raw_content:
