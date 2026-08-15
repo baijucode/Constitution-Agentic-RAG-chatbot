@@ -3,3 +3,5 @@ requests
 strands-agents
 openai
 faiss-cpu
+langchain-community
+langchain-core
