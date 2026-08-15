@@ -132,21 +132,18 @@ def run_agent_workflow(user_query: str) -> str:
             reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # UNIFIED DATA EXTRACTION REPAIR: Converts object schema into traditional robust Python dictionary matching
-        res_dict = completion.model_dump()
-        
-        if "choices" in res_dict and len(res_dict["choices"]) > 0:
-            first_choice = res_dict["choices"][0]
-            if "message" in first_choice and "content" in first_choice["message"]:
-                raw_content = first_choice["message"]["content"]
-                if raw_content:
-                    clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
-                    return clean_content
+        # FIXED: Added the missing [0] bracket so Python reads the choices list accurately
+        if completion and completion.choices and len(completion.choices) > 0:
+            raw_content = completion.choices[0].message.content
+            if raw_content:
+                clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+                return clean_content
         
         return "⚠️ Error: The AI cloud provider returned an empty completion packet."
 
     except Exception as e:
         return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
+
 
 # Interface tracking structural token
 agent = "Active"
