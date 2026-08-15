@@ -70,33 +70,42 @@ st.markdown('<div class="sub-header">Autonomous legal analysis running on Groq C
 
 # 4. Core Legal & Hybrid Search Engines
 def live_web_search(query: str) -> str:
-    """Searches the internet for live constitutional text with a built-in Wikipedia fallback."""
+    """Searches the internet for live constitutional text with a built-in strict fallback."""
     TAVILY_API_KEY = "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"
     url = "https://tavily.com" 
-    clean_query_str = f"{str(query)} Constitution of Nepal articles clauses"
+    
+    # Strip special characters and build a clean search string
+    clean_query = re.sub(r'[^a-zA-Z0-9\s]', '', str(query)).strip()
+    clean_query_str = f"{clean_query} Constitution of Nepal articles clauses"
     payload = {"query": clean_query_str, "topic": "general", "max_results": 3}
+    
+    # Track if we successfully found any data
+    context_data = ""
     
     try:
         # Try primary Tavily search route first
-        res = requests.post(url, headers={"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}, json=payload, timeout=8)
+        res = requests.post(url, headers={"Authorization": f"Bearer {TAVILY_API_KEY}", "Content-Type": "application/json"}, json=payload, timeout=6)
         if res.status_code == 200:
             results = res.json().get("results", [])
             if results:
-                return "\n\n".join(f"[Source: {r.get('title', 'Web')}]: {r.get('content', '')}" for r in results)
+                context_data = "\n\n".join(f"[Source: {r.get('title', 'Web')}]: {r.get('content', '')}" for r in results)
     except Exception:
         pass
         
-    # FALLBACK SOURCE ROUTE: If Tavily fails or hits rate limits, pull data directly via public Wikipedia text API
-    try:
-        wiki_url = f"https://wikipedia.org{requests.utils.quote(str(query) + ' Constitution of Nepal')}&format=json&origin=*"
-        wiki_res = requests.get(wiki_url, timeout=8)
-        if wiki_res.status_code == 200:
-            search_items = wiki_res.json().get("query", {}).get("search", [])
-            if search_items:
-                return "\n\n".join(f"[Source: Wikipedia - {item['title']}]: {re.sub('<[^<]+?>', '', item['snippet'])}" for item in search_items[:3])
-    except Exception:
-        pass
-        
+    # STRICT FALLBACK ROUTE: If Tavily fails OR returns an empty string/list, parse Wikipedia immediately
+    if not context_data:
+        try:
+            wiki_url = f"https://wikipedia.org{requests.utils.quote(clean_query + ' Constitution of Nepal')}&format=json&origin=*"
+            wiki_res = requests.get(wiki_url, timeout=6)
+            if wiki_res.status_code == 200:
+                search_items = wiki_res.json().get("query", {}).get("search", [])
+                if search_items:
+                    context_data = "\n\n".join(f"[Source: Wikipedia - {item['title']}]: {re.sub('<[^<]+?>', '', item['snippet'])}" for item in search_items[:3])
+        except Exception:
+            pass
+            
+    if context_data:
+        return context_data
     return "No live web constitutional data found in primary or fallback systems."
 
 def run_agent_workflow(user_query: str) -> str:
@@ -136,7 +145,7 @@ def run_agent_workflow(user_query: str) -> str:
         res_dict = completion.model_dump()
         
         if "choices" in res_dict and len(res_dict["choices"]) > 0:
-            # FIXED LOGIC: The index array bracket has been physically added to the statement below
+            # FIXED STRUCTURAL BLOCK: Added explicit list entry array indexing [0]
             first_choice = res_dict["choices"][0]
             if "message" in first_choice and "content" in first_choice["message"]:
                 raw_content = first_choice["message"]["content"]
@@ -149,8 +158,8 @@ def run_agent_workflow(user_query: str) -> str:
     except Exception as e:
         return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
 
-# Interface tracking structural token
-agent = "Active"
+
+
 
 # 5. Session State Tracking from Persistent Storage
 if "chat_history" not in st.session_state:
