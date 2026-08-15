@@ -145,7 +145,6 @@ def run_agent_workflow(user_query: str) -> str:
         res_dict = completion.model_dump()
         
         if "choices" in res_dict and len(res_dict["choices"]) > 0:
-            # FIXED STRUCTURAL BLOCK: Added explicit list entry array indexing [0]
             first_choice = res_dict["choices"][0]
             if "message" in first_choice and "content" in first_choice["message"]:
                 raw_content = first_choice["message"]["content"]
@@ -158,8 +157,8 @@ def run_agent_workflow(user_query: str) -> str:
     except Exception as e:
         return f"⚠️ Groq SDK Pipeline Error: {str(e)}"
 
-
-
+# CRITICAL FIX: Explicitly define the variable globally so line 200 cannot crash
+agent = "Active"
 
 # 5. Session State Tracking from Persistent Storage
 if "chat_history" not in st.session_state:
