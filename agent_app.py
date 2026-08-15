@@ -74,6 +74,9 @@ st.markdown('<div class="sub-header">Autonomous Agentic legal analysis running o
 @st.cache_resource
 def load_agentic_backend():
     # Fetch credentials securely from Streamlit Dashboard Secrets
+    if "OPENAI_API_KEY" not in st.secrets or "OPENAI_BASE_URL" not in st.secrets:
+        raise ValueError("Missing keys in Streamlit Secrets! Check your dashboard configuration.")
+
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
     OPENAI_BASE_URL = st.secrets["OPENAI_BASE_URL"]
 
@@ -89,25 +92,26 @@ def load_agentic_backend():
     from langchain_community.vectorstores import FAISS
     from langchain_openai import OpenAIEmbeddings
 
-    # Initialize custom cloud embeddings engine
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-qwen3-embedding-0.6b",
-        api_key=OPENAI_API_KEY,
-        base_url=OPENAI_BASE_URL,
-        tiktoken_enabled=False,
-        check_embedding_ctx_length=False
-    )
-
-    # Clean fallback logic for the vector database setup
+    # Setup clean fallback pointers for the vector database setup
     vector_store = None
-    db_error_message = None
+    db_error_message = "Database not loaded yet."
     
     try:
+        # Initialize custom cloud embeddings engine
+        embeddings = OpenAIEmbeddings(
+            model="text-embedding-qwen3-embedding-0.6b",
+            api_key=OPENAI_API_KEY,
+            base_url=OPENAI_BASE_URL,
+            tiktoken_enabled=False,
+            check_embedding_ctx_length=False
+        )
+        
         vector_store = FAISS.load_local(
             folder_path="faiss_index_nepal", 
             embeddings=embeddings,
             allow_dangerous_deserialization=True  
         )
+        db_error_message = None
     except Exception as db_err:
         db_error_message = str(db_err)
 
@@ -148,6 +152,12 @@ def load_agentic_backend():
     )
     return strands_agent
 
+# CRITICAL FIX: Pre-define the variable as None so the NameError is impossible
+agent = None
+try:
+    agent = load_agentic_backend()
+except Exception as e:
+    st.error(f"⚠️ Error loading backend components: {e}")
 
 # 5. Session State Tracking from Persistent Storage
 if "chat_history" not in st.session_state:
@@ -186,7 +196,7 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("🕵️ Agent is analyzing tools and reasoning..."):
             if agent is None:
-                st.error("⚠️ Cannot process request: The backend agent failed to initialize properly.")
+                st.error("⚠️ Cannot process request: The backend agent failed to initialize properly. Check the error alert at the top of the page.")
             else:
                 try:
                     agent_response = agent(user_input)
