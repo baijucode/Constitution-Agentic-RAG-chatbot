@@ -114,10 +114,10 @@ def run_agent_workflow(user_query: str) -> str:
                 {"role": "user", "content": user_query}
             ],
             temperature=0.2,
-            reasoning_format="hidden"  # Hides reasoning thoughts entirely from the output stream
+            reasoning_format="hidden"  # Hides reasoning thoughts entirely from output
         )
         
-        # FIXED LINE: We added [0] to extract the first choice from the data array securely
+        # CRITICAL STRUCTURAL FIX: Added [0] index to read the choices array accurately
         raw_content = completion.choices[0].message.content
         
         # Fallback regex cleaning filter
