@@ -114,13 +114,13 @@ def run_agent_workflow(user_query: str) -> str:
                 {"role": "user", "content": user_query}
             ],
             temperature=0.2,
-            # CRITICAL PARAMETER FIX: Completely disable reasoning tokens from being generated
-            extra_body={"enable_thinking": False}
+            # FIXED KEY: Use Groq's official API configuration to drop thinking blocks completely
+            reasoning_format="hidden"
         )
         
-        raw_content = completion.choices[0].message.content
+        raw_content = completion.choices.message.content
         
-        # Secondary fallback regex cleaning step just to be absolutely safe
+        # Secondary fallback regex cleaning step just to be bulletproof
         clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
         return clean_content
 
