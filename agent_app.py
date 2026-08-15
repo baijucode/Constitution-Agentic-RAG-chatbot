@@ -3,7 +3,7 @@ import requests
 import json
 import os
 import re
-from groq import Groq  # Official SDK client package wrapper import
+from groq import Groq  
 
 # 1. Page Configuration with Theme Accents
 st.set_page_config(
@@ -106,19 +106,21 @@ def run_agent_workflow(user_query: str) -> str:
         # Initialize the official secure Groq SDK Client wrapper
         client = Groq(api_key=api_key)
         
-        # Call the active completions pipeline with perfectly formatted parameters
+        # Call the active completions pipeline with standard parameters
         completion = client.chat.completions.create(
             model="qwen/qwen3.6-27b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_query}
             ],
-            temperature=0.2
+            temperature=0.2,
+            # CRITICAL PARAMETER FIX: Completely disable reasoning tokens from being generated
+            extra_body={"enable_thinking": False}
         )
         
         raw_content = completion.choices[0].message.content
         
-        # Hide the raw reasoning thinking steps behind the scenes
+        # Secondary fallback regex cleaning step just to be absolutely safe
         clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
         return clean_content
 
