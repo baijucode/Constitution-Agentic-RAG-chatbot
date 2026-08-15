@@ -86,7 +86,7 @@ def live_web_search(query: str) -> str:
     except Exception:
         pass
         
-    # FALLBACK SOURCE ROUTE: Pull data directly via public Wikipedia text API
+    # FALLBACK SOURCE ROUTE: If Tavily fails or hits rate limits, pull data directly via public Wikipedia text API
     try:
         wiki_url = f"https://wikipedia.org{requests.utils.quote(str(query) + ' Constitution of Nepal')}&format=json&origin=*"
         wiki_res = requests.get(wiki_url, timeout=8)
@@ -136,7 +136,7 @@ def run_agent_workflow(user_query: str) -> str:
         res_dict = completion.model_dump()
         
         if "choices" in res_dict and len(res_dict["choices"]) > 0:
-            # FIXED LINE: Enforced array bracket indexing directly onto choices
+            # FIXED LOGIC: The index array bracket has been physically added to the statement below
             first_choice = res_dict["choices"][0]
             if "message" in first_choice and "content" in first_choice["message"]:
                 raw_content = first_choice["message"]["content"]
