@@ -118,7 +118,8 @@ def run_agent_workflow(user_query: str) -> str:
         )
         
         # CRITICAL FIX: Explicitly target index [0] of choices list before parsing content
-        raw_content = completion.choices[0].message.content
+        raw_content = completion.choices.message.content
+
         
         # Fallback regex cleaning filter
         clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
